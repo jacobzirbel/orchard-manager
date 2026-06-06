@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required to fetch daily temperatures from the IEM weather API. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="orchard_manager"
         android:name="${applicationName}"
