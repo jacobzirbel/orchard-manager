@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../services/degree_day_repository.dart';
-import 'thresholds_screen.dart';
+import 'degree_day_model_screen.dart';
 
 /// Settings: the IEM station ID and the biofix date that anchors accumulation.
 ///
@@ -72,17 +72,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _openThresholds() async {
+  Future<void> _openModel() async {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => ThresholdsScreen(repository: widget.repository),
+        builder: (_) => DegreeDayModelScreen(repository: widget.repository),
       ),
     );
     if (changed == true && mounted) {
       setState(() => _changed = true);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Thresholds updated.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Degree-day model updated.')),
+      );
     }
   }
 
@@ -184,12 +184,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Card(
                       child: ListTile(
                         leading: const Icon(Icons.tune),
-                        title: const Text('Management thresholds'),
+                        title: const Text('Degree-day model'),
                         subtitle: const Text(
-                          'Customize the degree-day stages and labels.',
+                          'Base temp, cutoffs, and spray thresholds.',
                         ),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: _openThresholds,
+                        onTap: _openModel,
                       ),
                     ),
                     const SizedBox(height: 24),

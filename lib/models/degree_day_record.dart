@@ -1,11 +1,9 @@
-import '../constants/degree_day_constants.dart';
-
 /// A single day's stored weather observation for one orchard.
 ///
 /// This maps 1:1 to a row in the `degree_days` SQLite table, which stores only
-/// the raw observed temperatures. The per-day GDD ([dailyGdd]) and the
-/// cumulative total are computed on read, so they always track the current
-/// formula and the full history rather than going stale in storage.
+/// the raw observed temperatures. Degree days (per-day and cumulative) are
+/// derived on read from the active degree-day model, so they always track the
+/// current formula and full history rather than going stale in storage.
 class DegreeDayRecord {
   const DegreeDayRecord({
     required this.orchardId,
@@ -24,9 +22,6 @@ class DegreeDayRecord {
 
   /// Daily minimum temperature in °F.
   final double tMin;
-
-  /// Degree days accumulated on this single day (base 50°F, never negative).
-  double get dailyGdd => dailyGddFor(tMax, tMin);
 
   /// ISO `yyyy-MM-dd` representation used as the table primary key.
   String get dateKey => formatDateKey(date);

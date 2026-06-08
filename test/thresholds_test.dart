@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orchard_manager/constants/degree_day_constants.dart';
+import 'package:orchard_manager/models/degree_day_model.dart';
 import 'package:orchard_manager/models/degree_day_record.dart';
 import 'package:orchard_manager/services/degree_day_calculator.dart';
 import 'package:orchard_manager/services/preferences_service.dart';
@@ -12,6 +13,10 @@ DegreeDayRecord _record(String date, double tMax, double tMin) =>
       tMax: tMax,
       tMin: tMin,
     );
+
+// Disable the upper cutoff so the contrived 310°F rows yield a round 130 GDD,
+// keeping these tests focused on threshold behavior, not the formula.
+const _noCutoff = DegreeDayModel(upperCutoffEnabled: false);
 
 void main() {
   group('DegreeDayThreshold serialization', () {
@@ -40,6 +45,7 @@ void main() {
       final rows = DegreeDayCalculator.buildRows(
         [_record('2024-05-01', 310, 50)],
         thresholds: custom,
+        model: _noCutoff,
       );
       expect(rows.single.crossedThreshold?.degreeDays, 100);
       expect(rows.single.crossedThreshold?.label, 'custom');
@@ -53,6 +59,7 @@ void main() {
       final rows = DegreeDayCalculator.buildRows(
         [_record('2024-05-01', 310, 50)], // cumulative 130
         thresholds: custom,
+        model: _noCutoff,
       );
       final summary = DegreeDayCalculator.summarize(rows, thresholds: custom);
       expect(summary.nextThreshold?.degreeDays, 200);
@@ -67,6 +74,7 @@ void main() {
       final rows = DegreeDayCalculator.buildRows(
         [_record('2024-05-01', 310, 50)], // cumulative 130
         thresholds: unsorted,
+        model: _noCutoff,
       );
       // 130 crosses 100 (the lower) but not 200.
       expect(rows.single.crossedThreshold?.degreeDays, 100);
@@ -99,6 +107,25 @@ void main() {
     test('falls back to defaults on unparseable data', () async {
       SharedPreferences.setMockInitialValues({'thresholds': 'not json'});
       expect(await PreferencesService().getThresholds(), kThresholds);
+    });
+  });
+
+  group('PreferencesService model', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('defaults to base 50 with the 88°F cutoff on', () async {
+      expect(await PreferencesService().getModel(), const DegreeDayModel());
+    });
+
+    test('round-trips a saved custom model', () async {
+      final prefs = PreferencesService();
+      const custom = DegreeDayModel(
+        baseTempF: 43,
+        upperCutoffEnabled: false,
+        upperCutoffTempF: 90,
+      );
+      await prefs.setModel(custom);
+      expect(await prefs.getModel(), custom);
     });
   });
 }

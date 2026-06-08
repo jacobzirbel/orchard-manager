@@ -1,4 +1,5 @@
 import '../constants/degree_day_constants.dart';
+import '../models/degree_day_model.dart';
 import '../models/degree_day_record.dart';
 import '../models/degree_day_view.dart';
 
@@ -11,9 +12,12 @@ class DegreeDayCalculator {
   ///
   /// [thresholds] defaults to the built-in [kThresholds] but may be a
   /// user-customized set; it is sorted ascending here so callers needn't.
+  /// [model] supplies the base temperature and cutoffs used to compute each
+  /// day's GDD; it defaults to the standard codling moth model.
   static List<DegreeDayRow> buildRows(
     List<DegreeDayRecord> records, {
     List<DegreeDayThreshold> thresholds = kThresholds,
+    DegreeDayModel model = const DegreeDayModel(),
   }) {
     final sorted = [...records]..sort((a, b) => a.date.compareTo(b.date));
     final ordered = _ascending(thresholds);
@@ -23,7 +27,8 @@ class DegreeDayCalculator {
     final rows = <DegreeDayRow>[];
 
     for (final record in sorted) {
-      cumulative += record.dailyGdd;
+      final daily = model.dailyGdd(record.tMax, record.tMin);
+      cumulative += daily;
 
       // A single day can cross more than one threshold; attribute the highest
       // one reached on this day so the label reflects the current stage.
@@ -37,6 +42,7 @@ class DegreeDayCalculator {
       rows.add(
         DegreeDayRow(
           record: record,
+          dailyGdd: daily,
           cumulativeGdd: cumulative,
           crossedThreshold: crossed,
         ),

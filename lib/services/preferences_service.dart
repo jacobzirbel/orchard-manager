@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../constants/degree_day_constants.dart';
+import '../models/degree_day_model.dart';
 import '../models/degree_day_record.dart';
 
 /// Key/value app settings backed by SharedPreferences (the Flutter analogue of
@@ -16,6 +17,9 @@ class PreferencesService {
   static const _kBiofix = 'biofix_date'; // stored as yyyy-MM-dd
   static const _kOrchardId = 'orchard_id';
   static const _kThresholds = 'thresholds'; // JSON array of {degreeDays,label}
+  static const _kBaseTemp = 'base_temp_f';
+  static const _kUpperCutoffOn = 'upper_cutoff_enabled';
+  static const _kUpperCutoffTemp = 'upper_cutoff_f';
 
   static const _uuid = Uuid();
 
@@ -69,6 +73,24 @@ class PreferencesService {
   Future<void> setThresholds(List<DegreeDayThreshold> thresholds) async {
     final encoded = jsonEncode(thresholds.map((t) => t.toJson()).toList());
     await (await _prefs).setString(_kThresholds, encoded);
+  }
+
+  /// The user's degree-day model parameters, falling back to the standard
+  /// defaults ([kBaseTempF], 88°F cutoff on) for any value not yet set.
+  Future<DegreeDayModel> getModel() async {
+    final prefs = await _prefs;
+    return DegreeDayModel(
+      baseTempF: prefs.getDouble(_kBaseTemp) ?? kBaseTempF,
+      upperCutoffEnabled: prefs.getBool(_kUpperCutoffOn) ?? true,
+      upperCutoffTempF: prefs.getDouble(_kUpperCutoffTemp) ?? kUpperCutoffF,
+    );
+  }
+
+  Future<void> setModel(DegreeDayModel model) async {
+    final prefs = await _prefs;
+    await prefs.setDouble(_kBaseTemp, model.baseTempF);
+    await prefs.setBool(_kUpperCutoffOn, model.upperCutoffEnabled);
+    await prefs.setDouble(_kUpperCutoffTemp, model.upperCutoffTempF);
   }
 
   /// Returns the persisted orchard ID, generating and storing one on first use.

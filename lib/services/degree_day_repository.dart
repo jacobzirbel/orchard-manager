@@ -1,4 +1,5 @@
 import '../constants/degree_day_constants.dart';
+import '../models/degree_day_model.dart';
 import '../models/degree_day_record.dart';
 import '../models/degree_day_view.dart';
 import 'database_service.dart';
@@ -60,6 +61,13 @@ class DegreeDayRepository {
   Future<void> saveThresholds(List<DegreeDayThreshold> thresholds) =>
       _prefs.setThresholds(thresholds);
 
+  Future<DegreeDayModel> currentModel() => _prefs.getModel();
+
+  /// Persists the degree-day model parameters. Like thresholds, this changes
+  /// only derived values (per-day and cumulative GDD), so it does not clear the
+  /// cache — the next [load] recomputes from the same cached temperatures.
+  Future<void> saveModel(DegreeDayModel model) => _prefs.setModel(model);
+
   /// Loads cached rows, optionally fetching any days not yet cached first.
   ///
   /// Used for both the initial open and pull-to-refresh. Throws
@@ -84,8 +92,13 @@ class DegreeDayRepository {
     }
 
     final thresholds = await _prefs.getThresholds();
+    final model = await _prefs.getModel();
     final records = await _db.getDays(orchardId);
-    final rows = DegreeDayCalculator.buildRows(records, thresholds: thresholds);
+    final rows = DegreeDayCalculator.buildRows(
+      records,
+      thresholds: thresholds,
+      model: model,
+    );
     return DegreeDayData(
       isConfigured: true,
       rows: rows,

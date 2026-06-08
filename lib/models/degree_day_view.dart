@@ -6,11 +6,15 @@ import 'degree_day_record.dart';
 class DegreeDayRow {
   const DegreeDayRow({
     required this.record,
+    required this.dailyGdd,
     required this.cumulativeGdd,
     this.crossedThreshold,
   });
 
   final DegreeDayRecord record;
+
+  /// Degree days for this day alone, computed with the active model.
+  final double dailyGdd;
 
   /// Running total of daily GDD from biofix through this day (inclusive).
   final double cumulativeGdd;
@@ -21,7 +25,6 @@ class DegreeDayRow {
   DateTime get date => record.date;
   double get tMax => record.tMax;
   double get tMin => record.tMin;
-  double get dailyGdd => record.dailyGdd;
   bool get isThresholdRow => crossedThreshold != null;
 }
 

@@ -15,26 +15,30 @@ SAVW3,2025-05-04,62.0,None,None,0.00,59.4
 ''';
 
 void main() {
-  test('parses IEM CSV, mapping max_temp_f/min_temp_f and skipping None rows',
-      () async {
-    final client = MockClient((request) async => http.Response(_sampleCsv, 200));
-    final service = WeatherService(client: client);
+  test(
+    'parses IEM CSV, mapping max_temp_f/min_temp_f and skipping None rows',
+    () async {
+      final client = MockClient(
+        (request) async => http.Response(_sampleCsv, 200),
+      );
+      final service = WeatherService(client: client);
 
-    final temps = await service.fetchDaily(
-      stationId: 'SAVW3',
-      network: 'WI_COOP',
-      start: DateTime(2025, 5, 1),
-      end: DateTime(2025, 5, 4),
-    );
+      final temps = await service.fetchDaily(
+        stationId: 'SAVW3',
+        network: 'WI_COOP',
+        start: DateTime(2025, 5, 1),
+        end: DateTime(2025, 5, 4),
+      );
 
-    // Only the two complete rows survive; the two with a None temp are skipped.
-    expect(temps.length, 2);
-    expect(temps[0].date, DateTime(2025, 5, 1));
-    expect(temps[0].tMax, 50.0);
-    expect(temps[0].tMin, 35.0);
-    expect(temps[1].tMax, 51.0);
-    expect(temps[1].tMin, 43.0);
-  });
+      // Only the two complete rows survive; the two with a None temp are skipped.
+      expect(temps.length, 2);
+      expect(temps[0].date, DateTime(2025, 5, 1));
+      expect(temps[0].tMax, 50.0);
+      expect(temps[0].tMin, 35.0);
+      expect(temps[1].tMax, 51.0);
+      expect(temps[1].tMin, 43.0);
+    },
+  );
 
   test('sends the required network and modern vars query params', () async {
     late Uri captured;
@@ -58,7 +62,9 @@ void main() {
   });
 
   test('throws when the temperature columns are absent', () async {
-    final client = MockClient((request) async => http.Response('station,day\n', 200));
+    final client = MockClient(
+      (request) async => http.Response('station,day\n', 200),
+    );
     final service = WeatherService(client: client);
 
     expect(
