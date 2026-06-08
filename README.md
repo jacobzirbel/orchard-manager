@@ -28,3 +28,11 @@ once (and again after upgrading `sqflite_common_ffi_web`):
 dart run sqflite_common_ffi_web:setup
 flutter build web --release
 ```
+
+### Deploying to GitHub Pages
+
+`.github/workflows/deploy-web.yml` builds and publishes the web app to GitHub
+Pages on every push to `main` (or via manual dispatch). For it to take effect,
+enable Pages once in the repo: **Settings → Pages → Source: GitHub Actions**.
+The site will be served at `https://<owner>.github.io/<repo>/`, and the
+workflow passes that path as `--base-href` so assets resolve correctly.
