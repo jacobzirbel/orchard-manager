@@ -1,18 +1,16 @@
-/// A single day's stored weather observation for one orchard.
+/// A single day's cached weather observation for a station.
 ///
-/// This maps 1:1 to a row in the `degree_days` SQLite table, which stores only
-/// the raw observed temperatures. Degree days (per-day and cumulative) are
-/// derived on read from the active degree-day model, so they always track the
-/// current formula and full history rather than going stale in storage.
+/// Stored (keyed by station) in the `station_weather` table — only the raw
+/// observed temperatures. It carries no orchard identity: the same day is
+/// shared by every orchard/station that references the IEM station. Degree days
+/// (per-day and cumulative) are derived on read from the active degree-day
+/// model, so they always track the current formula rather than going stale.
 class DegreeDayRecord {
   const DegreeDayRecord({
-    required this.orchardId,
     required this.date,
     required this.tMax,
     required this.tMin,
   });
-
-  final String orchardId;
 
   /// Calendar date (time component is always midnight / ignored).
   final DateTime date;
@@ -23,18 +21,18 @@ class DegreeDayRecord {
   /// Daily minimum temperature in °F.
   final double tMin;
 
-  /// ISO `yyyy-MM-dd` representation used as the table primary key.
+  /// ISO `yyyy-MM-dd` representation used as part of the table primary key.
   String get dateKey => formatDateKey(date);
 
+  /// Maps the temperature fields; the station/network key columns are supplied
+  /// by the database layer, not here.
   Map<String, Object?> toMap() => {
-    'orchard_id': orchardId,
     'date': dateKey,
     't_max': tMax,
     't_min': tMin,
   };
 
   factory DegreeDayRecord.fromMap(Map<String, Object?> map) => DegreeDayRecord(
-    orchardId: map['orchard_id'] as String,
     date: DateTime.parse(map['date'] as String),
     tMax: (map['t_max'] as num).toDouble(),
     tMin: (map['t_min'] as num).toDouble(),

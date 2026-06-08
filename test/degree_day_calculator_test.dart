@@ -6,12 +6,7 @@ import 'package:orchard_manager/models/degree_day_view.dart';
 import 'package:orchard_manager/services/degree_day_calculator.dart';
 
 DegreeDayRecord _record(String date, double tMax, double tMin) =>
-    DegreeDayRecord(
-      orchardId: 'test',
-      date: DateTime.parse(date),
-      tMax: tMax,
-      tMin: tMin,
-    );
+    DegreeDayRecord(date: DateTime.parse(date), tMax: tMax, tMin: tMin);
 
 // Most threshold-logic tests below disable the upper cutoff so they can use
 // large contrived temps to hit known cumulative totals, keeping the focus on

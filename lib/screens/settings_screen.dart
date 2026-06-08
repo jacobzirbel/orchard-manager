@@ -175,8 +175,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
-                        'Changing the station or biofix clears cached data and '
-                        'refetches from the new biofix.',
+                        'Weather is cached per station and reused. Changing the '
+                        'biofix just recomputes; earlier days are fetched '
+                        'automatically if needed.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
