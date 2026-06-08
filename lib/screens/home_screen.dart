@@ -4,6 +4,7 @@ import '../services/degree_day_repository.dart';
 import '../services/weather_service.dart';
 import '../widgets/degree_day_table.dart';
 import '../widgets/summary_header.dart';
+import 'comparison_screen.dart';
 import 'settings_screen.dart';
 
 /// The main spreadsheet view. Fetches on open, supports pull-to-refresh and a
@@ -88,6 +89,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Opens the read-only station comparison page; no reload needed on return.
+  Future<void> _openComparison() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ComparisonScreen(repository: widget.repository),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -99,6 +109,13 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.refresh),
             onPressed: _loading ? null : () => _load(isInitial: false),
           ),
+          // Comparison only makes sense across two or more stations.
+          if ((_data?.stations.length ?? 0) >= 2)
+            IconButton(
+              tooltip: 'Compare stations',
+              icon: const Icon(Icons.compare_arrows),
+              onPressed: _loading ? null : _openComparison,
+            ),
           IconButton(
             tooltip: 'Settings',
             icon: const Icon(Icons.settings),

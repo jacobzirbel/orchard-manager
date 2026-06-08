@@ -1,5 +1,6 @@
 import '../constants/degree_day_constants.dart';
 import 'degree_day_record.dart';
+import 'station.dart';
 
 /// A table row: one day's record plus its derived cumulative total and,
 /// if this is the day a management threshold was first crossed, that threshold.
@@ -45,4 +46,26 @@ class DegreeDaySummary {
           0,
           double.infinity,
         );
+}
+
+/// One station's standing for the comparison page: its [summary] plus the date
+/// of its most recent observation (null when the station has no cached data).
+///
+/// Every station in an orchard shares the same biofix, model, and thresholds, so
+/// any difference between two [StationComparison]s reflects only their weather.
+class StationComparison {
+  const StationComparison({
+    required this.station,
+    required this.summary,
+    this.lastDate,
+  });
+
+  final Station station;
+  final DegreeDaySummary summary;
+
+  /// Date of the newest observation feeding [summary], or null if none.
+  final DateTime? lastDate;
+
+  /// Cumulative degree days to date — the value rows are ranked by.
+  double get currentCumulative => summary.currentCumulative;
 }

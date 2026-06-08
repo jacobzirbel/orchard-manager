@@ -89,6 +89,25 @@ class DegreeDayData {
   );
 }
 
+/// The per-station standings the comparison screen renders, ordered by progress.
+class ComparisonData {
+  const ComparisonData({
+    this.stations = const [],
+    this.orchardName,
+    this.hadFetchError = false,
+  });
+
+  /// One entry per station in the selected orchard, highest cumulative GDD first.
+  final List<StationComparison> stations;
+
+  /// Name of the orchard being compared, shown as the screen subtitle.
+  final String? orchardName;
+
+  /// True when refreshing at least one station's weather failed; the screen
+  /// still shows every station from cache and warns that data may be stale.
+  final bool hadFetchError;
+}
+
 /// The single entry point the UI uses. Owns the preferences, database, and
 /// weather services and ties them together: ensure weather is cached → derive
 /// rows for the selected orchard/station.
@@ -244,6 +263,68 @@ class DegreeDayRepository {
       biofix: orchard.biofix,
       stations: stations,
       selectedStationId: station.id,
+    );
+  }
+
+  /// Loads a side-by-side standing for every station in the selected orchard,
+  /// ranked by progress (highest cumulative GDD first). Because biofix, model,
+  /// and thresholds are per-orchard, this isolates the weather — apples to apples.
+  ///
+  /// Like [load] it ensures each station's cache covers `[biofix, today]` when
+  /// [fetch] is true, but a fetch failure for one station never blocks the rest:
+  /// that station falls back to whatever is already cached and
+  /// [ComparisonData.hadFetchError] is set so the caller can warn about staleness.
+  Future<ComparisonData> loadComparison({bool fetch = true}) async {
+    await _ensureMigrated();
+    final orchard = await _selectedOrchard();
+    if (orchard == null || orchard.biofix == null) {
+      return const ComparisonData();
+    }
+
+    final biofix = dateOnly(orchard.biofix!);
+    final stations = await _db.getStations(orchard.id);
+
+    var hadFetchError = false;
+    final comparisons = <StationComparison>[];
+    for (final station in stations) {
+      if (fetch) {
+        try {
+          await _ensureWeather(station, biofix);
+        } catch (_) {
+          // One station failing to refresh shouldn't blank out the others.
+          hadFetchError = true;
+        }
+      }
+      final cached = await _db.getWeather(
+        station.iemStation,
+        station.iemNetwork,
+      );
+      // Biofix only filters at read — never accumulate before it.
+      final records = cached.where((r) => !r.date.isBefore(biofix)).toList();
+      final rows = DegreeDayCalculator.buildRows(
+        records,
+        thresholds: orchard.thresholds,
+        model: orchard.model,
+      );
+      comparisons.add(
+        StationComparison(
+          station: station,
+          summary: DegreeDayCalculator.summarize(
+            rows,
+            thresholds: orchard.thresholds,
+          ),
+          lastDate: rows.isEmpty ? null : rows.last.date,
+        ),
+      );
+    }
+
+    comparisons.sort(
+      (a, b) => b.currentCumulative.compareTo(a.currentCumulative),
+    );
+    return ComparisonData(
+      stations: comparisons,
+      orchardName: orchard.name,
+      hadFetchError: hadFetchError,
     );
   }
 
