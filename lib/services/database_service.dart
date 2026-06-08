@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
 import '../models/degree_day_record.dart';
 import '../models/orchard.dart';
 import '../models/station.dart';
+import 'database_factory.dart';
 
 /// SQLite store for the app.
 ///
@@ -31,8 +33,15 @@ class DatabaseService {
   }
 
   Future<Database> _open() async {
-    final dir = await getDatabasesPath();
-    final path = p.join(dir, _dbName);
+    String path;
+    if (kIsWeb) {
+      // The browser has no filesystem; sqflite's web factory just keys its
+      // IndexedDB store off this name, so a bare filename is enough.
+      configureWebDatabaseFactory();
+      path = _dbName;
+    } else {
+      path = p.join(await getDatabasesPath(), _dbName);
+    }
     return openDatabase(
       path,
       version: 3,
