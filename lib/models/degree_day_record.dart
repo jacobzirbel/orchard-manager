@@ -1,15 +1,17 @@
-/// A single day's stored weather + degree-day datum for one orchard.
+import '../constants/degree_day_constants.dart';
+
+/// A single day's stored weather observation for one orchard.
 ///
-/// This maps 1:1 to a row in the `degree_days` SQLite table. The cumulative
-/// degree-day total is *not* stored — it is derived on read so that it always
-/// reflects the full history (see `DegreeDayCalculator`).
+/// This maps 1:1 to a row in the `degree_days` SQLite table, which stores only
+/// the raw observed temperatures. The per-day GDD ([dailyGdd]) and the
+/// cumulative total are computed on read, so they always track the current
+/// formula and the full history rather than going stale in storage.
 class DegreeDayRecord {
   const DegreeDayRecord({
     required this.orchardId,
     required this.date,
     required this.tMax,
     required this.tMin,
-    required this.dailyGdd,
   });
 
   final String orchardId;
@@ -24,7 +26,7 @@ class DegreeDayRecord {
   final double tMin;
 
   /// Degree days accumulated on this single day (base 50°F, never negative).
-  final double dailyGdd;
+  double get dailyGdd => dailyGddFor(tMax, tMin);
 
   /// ISO `yyyy-MM-dd` representation used as the table primary key.
   String get dateKey => formatDateKey(date);
@@ -34,7 +36,6 @@ class DegreeDayRecord {
         'date': dateKey,
         't_max': tMax,
         't_min': tMin,
-        'daily_gdd': dailyGdd,
       };
 
   factory DegreeDayRecord.fromMap(Map<String, Object?> map) => DegreeDayRecord(
@@ -42,7 +43,6 @@ class DegreeDayRecord {
         date: DateTime.parse(map['date'] as String),
         tMax: (map['t_max'] as num).toDouble(),
         tMin: (map['t_min'] as num).toDouble(),
-        dailyGdd: (map['daily_gdd'] as num).toDouble(),
       );
 }
 

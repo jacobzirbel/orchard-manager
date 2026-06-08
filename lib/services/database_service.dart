@@ -3,11 +3,11 @@ import 'package:sqflite/sqflite.dart';
 
 import '../models/degree_day_record.dart';
 
-/// SQLite-backed cache of computed degree-day rows.
+/// SQLite-backed cache of daily weather observations (one row per orchard-day).
 ///
-/// Schema (per spec):
-/// `degree_days(orchard_id TEXT, date TEXT PRIMARY KEY, t_max REAL,
-///  t_min REAL, daily_gdd REAL)`
+/// Schema:
+/// `degree_days(orchard_id TEXT, date TEXT PRIMARY KEY, t_max REAL, t_min REAL)`
+/// Degree days are derived from these on read, not stored.
 class DatabaseService {
   DatabaseService._();
 
@@ -27,19 +27,27 @@ class DatabaseService {
     final path = p.join(dir, _dbName);
     return openDatabase(
       path,
-      version: 1,
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE $_table (
-            orchard_id TEXT NOT NULL,
-            date TEXT PRIMARY KEY,
-            t_max REAL NOT NULL,
-            t_min REAL NOT NULL,
-            daily_gdd REAL NOT NULL
-          )
-        ''');
+      version: 2,
+      onCreate: (db, version) => _createTable(db),
+      // v2 dropped the redundant `daily_gdd` column (it's now derived from
+      // t_max/t_min on read). The table is just a refetchable cache, so the
+      // simplest safe migration is to drop it and let the next load rebuild.
+      onUpgrade: (db, oldVersion, newVersion) async {
+        await db.execute('DROP TABLE IF EXISTS $_table');
+        await _createTable(db);
       },
     );
+  }
+
+  Future<void> _createTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $_table (
+        orchard_id TEXT NOT NULL,
+        date TEXT PRIMARY KEY,
+        t_max REAL NOT NULL,
+        t_min REAL NOT NULL
+      )
+    ''');
   }
 
   /// Inserts records, replacing any existing row for the same date so a

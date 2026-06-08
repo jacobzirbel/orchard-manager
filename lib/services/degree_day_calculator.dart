@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import '../constants/degree_day_constants.dart';
 import '../models/degree_day_record.dart';
 import '../models/degree_day_view.dart';
@@ -7,14 +5,6 @@ import '../models/degree_day_view.dart';
 /// Pure degree-day math. No I/O — kept separate so it is trivially testable.
 class DegreeDayCalculator {
   const DegreeDayCalculator();
-
-  /// Single-day GDD using the simple-average method, base 50°F.
-  ///
-  /// `max(0, (tMax + tMin) / 2 - 50)` — development never goes negative.
-  static double dailyGdd(double tMax, double tMin) {
-    final avg = (tMax + tMin) / 2.0;
-    return math.max(0.0, avg - kBaseTempF);
-  }
 
   /// Builds display rows from stored records: sorts by date, accumulates the
   /// running total, and tags the first row to reach each management threshold.

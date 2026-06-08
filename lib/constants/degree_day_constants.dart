@@ -4,8 +4,16 @@
 /// temperature of 50°F, the standard for codling moth (Cydia pomonella).
 library;
 
+import 'dart:math' as math;
+
 /// Base temperature in °F below which no development is accumulated.
 const double kBaseTempF = 50.0;
+
+/// Growing degree days contributed by a single day: the simple-average method
+/// (`(tMax + tMin) / 2 - base`) floored at zero, since development never
+/// reverses. Temperatures and the result are in °F.
+double dailyGddFor(double tMax, double tMin) =>
+    math.max(0.0, (tMax + tMin) / 2.0 - kBaseTempF);
 
 /// A management threshold expressed in cumulative degree days from biofix.
 class DegreeDayThreshold {

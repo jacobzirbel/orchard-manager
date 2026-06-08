@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orchard_manager/constants/degree_day_constants.dart';
 import 'package:orchard_manager/models/degree_day_record.dart';
 import 'package:orchard_manager/models/degree_day_view.dart';
 import 'package:orchard_manager/services/degree_day_calculator.dart';
@@ -9,19 +10,18 @@ DegreeDayRecord _record(String date, double tMax, double tMin) =>
       date: DateTime.parse(date),
       tMax: tMax,
       tMin: tMin,
-      dailyGdd: DegreeDayCalculator.dailyGdd(tMax, tMin),
     );
 
 void main() {
-  group('dailyGdd', () {
+  group('dailyGddFor', () {
     test('uses simple-average method with base 50', () {
       // avg = (80 + 60) / 2 = 70; 70 - 50 = 20
-      expect(DegreeDayCalculator.dailyGdd(80, 60), 20);
+      expect(dailyGddFor(80, 60), 20);
     });
 
     test('never goes negative (floors at 0)', () {
       // avg = 40, below base -> clamped to 0
-      expect(DegreeDayCalculator.dailyGdd(45, 35), 0);
+      expect(dailyGddFor(45, 35), 0);
     });
   });
 

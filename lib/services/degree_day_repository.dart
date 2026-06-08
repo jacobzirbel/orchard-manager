@@ -115,7 +115,6 @@ class DegreeDayRepository {
               date: t.date,
               tMax: t.tMax,
               tMin: t.tMin,
-              dailyGdd: DegreeDayCalculator.dailyGdd(t.tMax, t.tMin),
             ))
         .toList();
 
