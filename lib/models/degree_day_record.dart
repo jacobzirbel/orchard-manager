@@ -32,18 +32,18 @@ class DegreeDayRecord {
   String get dateKey => formatDateKey(date);
 
   Map<String, Object?> toMap() => {
-        'orchard_id': orchardId,
-        'date': dateKey,
-        't_max': tMax,
-        't_min': tMin,
-      };
+    'orchard_id': orchardId,
+    'date': dateKey,
+    't_max': tMax,
+    't_min': tMin,
+  };
 
   factory DegreeDayRecord.fromMap(Map<String, Object?> map) => DegreeDayRecord(
-        orchardId: map['orchard_id'] as String,
-        date: DateTime.parse(map['date'] as String),
-        tMax: (map['t_max'] as num).toDouble(),
-        tMin: (map['t_min'] as num).toDouble(),
-      );
+    orchardId: map['orchard_id'] as String,
+    date: DateTime.parse(map['date'] as String),
+    tMax: (map['t_max'] as num).toDouble(),
+    tMin: (map['t_min'] as num).toDouble(),
+  );
 }
 
 /// Formats a [DateTime] as a stable `yyyy-MM-dd` key (used for storage + URLs).

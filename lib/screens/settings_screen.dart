@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../services/degree_day_repository.dart';
+import 'thresholds_screen.dart';
 
 /// Settings: the IEM station ID and the biofix date that anchors accumulation.
 ///
@@ -26,6 +27,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   DateTime? _biofix;
   bool _loading = true;
   bool _saving = false;
+
+  /// True once something changed (station/biofix saved, or thresholds edited)
+  /// so the caller knows to reload even when leaving via the back button.
+  bool _changed = false;
 
   @override
   void initState() {
@@ -67,6 +72,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _openThresholds() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ThresholdsScreen(repository: widget.repository),
+      ),
+    );
+    if (changed == true && mounted) {
+      setState(() => _changed = true);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Thresholds updated.')));
+    }
+  }
+
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_biofix == null) {
@@ -88,87 +107,107 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  TextFormField(
-                    controller: _stationController,
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      labelText: 'IEM station ID',
-                      hintText: 'e.g. SAVW3',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.cell_tower),
-                    ),
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty)
-                            ? 'Enter a station ID'
-                            : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _networkController,
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      labelText: 'IEM network',
-                      hintText: 'e.g. WI_COOP',
-                      helperText: 'The network the station belongs to '
-                          '(e.g. WI_COOP, IA_ASOS).',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.hub),
-                    ),
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty)
-                            ? 'Enter a network'
-                            : null,
-                  ),
-                  const SizedBox(height: 24),
-                  Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.event),
-                      title: const Text('Biofix date'),
-                      subtitle: Text(
-                        _biofix == null
-                            ? 'Not set'
-                            : _dateFormat.format(_biofix!),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.of(context).pop(_changed);
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Settings')),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : Form(
+                key: _formKey,
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    TextFormField(
+                      controller: _stationController,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(
+                        labelText: 'IEM station ID',
+                        hintText: 'e.g. SAVW3',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.cell_tower),
                       ),
-                      trailing: TextButton(
-                        onPressed: _pickBiofix,
-                        child: const Text('Change'),
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'Enter a station ID'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _networkController,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(
+                        labelText: 'IEM network',
+                        hintText: 'e.g. WI_COOP',
+                        helperText:
+                            'The network the station belongs to '
+                            '(e.g. WI_COOP, IA_ASOS).',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.hub),
                       ),
-                      onTap: _pickBiofix,
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'Enter a network'
+                          : null,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'Changing the station or biofix clears cached data and '
-                      'refetches from the new biofix.',
-                      style: Theme.of(context).textTheme.bodySmall,
+                    const SizedBox(height: 24),
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.event),
+                        title: const Text('Biofix date'),
+                        subtitle: Text(
+                          _biofix == null
+                              ? 'Not set'
+                              : _dateFormat.format(_biofix!),
+                        ),
+                        trailing: TextButton(
+                          onPressed: _pickBiofix,
+                          child: const Text('Change'),
+                        ),
+                        onTap: _pickBiofix,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: _saving ? null : _save,
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save),
-                    label: const Text('Save'),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'Changing the station or biofix clears cached data and '
+                        'refetches from the new biofix.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.tune),
+                        title: const Text('Management thresholds'),
+                        subtitle: const Text(
+                          'Customize the degree-day stages and labels.',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: _openThresholds,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save),
+                      label: const Text('Save'),
+                    ),
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 }

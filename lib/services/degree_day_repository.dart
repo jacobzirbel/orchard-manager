@@ -1,3 +1,4 @@
+import '../constants/degree_day_constants.dart';
 import '../models/degree_day_record.dart';
 import '../models/degree_day_view.dart';
 import 'database_service.dart';
@@ -39,9 +40,9 @@ class DegreeDayRepository {
     PreferencesService? preferences,
     DatabaseService? database,
     WeatherService? weather,
-  })  : _prefs = preferences ?? PreferencesService(),
-        _db = database ?? DatabaseService.instance,
-        _weather = weather ?? WeatherService();
+  }) : _prefs = preferences ?? PreferencesService(),
+       _db = database ?? DatabaseService.instance,
+       _weather = weather ?? WeatherService();
 
   final PreferencesService _prefs;
   final DatabaseService _db;
@@ -50,6 +51,14 @@ class DegreeDayRepository {
   Future<String?> currentStationId() => _prefs.getStationId();
   Future<String?> currentNetwork() => _prefs.getNetwork();
   Future<DateTime?> currentBiofix() => _prefs.getBiofix();
+  Future<List<DegreeDayThreshold>> currentThresholds() =>
+      _prefs.getThresholds();
+
+  /// Persists customized thresholds. Unlike station/biofix, this does not clear
+  /// the cache — thresholds only affect derived rows, so the next [load]
+  /// recomputes from the same cached temperatures.
+  Future<void> saveThresholds(List<DegreeDayThreshold> thresholds) =>
+      _prefs.setThresholds(thresholds);
 
   /// Loads cached rows, optionally fetching any days not yet cached first.
   ///
@@ -74,12 +83,13 @@ class DegreeDayRepository {
       );
     }
 
+    final thresholds = await _prefs.getThresholds();
     final records = await _db.getDays(orchardId);
-    final rows = DegreeDayCalculator.buildRows(records);
+    final rows = DegreeDayCalculator.buildRows(records, thresholds: thresholds);
     return DegreeDayData(
       isConfigured: true,
       rows: rows,
-      summary: DegreeDayCalculator.summarize(rows),
+      summary: DegreeDayCalculator.summarize(rows, thresholds: thresholds),
       stationId: stationId,
       biofix: biofix,
     );
@@ -109,13 +119,17 @@ class DegreeDayRepository {
     );
 
     final records = temps
-        .where((t) => !t.date.isBefore(biofix)) // never accumulate before biofix
-        .map((t) => DegreeDayRecord(
-              orchardId: orchardId,
-              date: t.date,
-              tMax: t.tMax,
-              tMin: t.tMin,
-            ))
+        .where(
+          (t) => !t.date.isBefore(biofix),
+        ) // never accumulate before biofix
+        .map(
+          (t) => DegreeDayRecord(
+            orchardId: orchardId,
+            date: t.date,
+            tMax: t.tMax,
+            tMin: t.tMin,
+          ),
+        )
         .toList();
 
     await _db.upsertDays(records);
@@ -140,7 +154,8 @@ class DegreeDayRepository {
 
     final stationChanged = previousStation != normalizedStation;
     final networkChanged = previousNetwork != normalizedNetwork;
-    final biofixChanged = previousBiofix == null ||
+    final biofixChanged =
+        previousBiofix == null ||
         !_sameDay(dateOnly(previousBiofix), normalizedBiofix);
 
     await _prefs.setStationId(normalizedStation);

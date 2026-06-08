@@ -27,10 +27,7 @@ class DegreeDayRow {
 
 /// Aggregate status shown in the header above the table.
 class DegreeDaySummary {
-  const DegreeDaySummary({
-    required this.currentCumulative,
-    this.nextThreshold,
-  });
+  const DegreeDaySummary({required this.currentCumulative, this.nextThreshold});
 
   /// The latest cumulative degree-day total (0 if no data yet).
   final double currentCumulative;
@@ -41,5 +38,8 @@ class DegreeDaySummary {
   /// Degree days remaining until [nextThreshold], or null if none remain.
   double? get degreeDaysRemaining => nextThreshold == null
       ? null
-      : (nextThreshold!.degreeDays - currentCumulative).clamp(0, double.infinity);
+      : (nextThreshold!.degreeDays - currentCumulative).clamp(
+          0,
+          double.infinity,
+        );
 }

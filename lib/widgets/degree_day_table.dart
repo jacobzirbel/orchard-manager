@@ -46,10 +46,12 @@ class DegreeDayTable extends StatelessWidget {
               DataCell(Text(row.tMax.toStringAsFixed(0))),
               DataCell(Text(row.tMin.toStringAsFixed(0))),
               DataCell(Text(row.dailyGdd.toStringAsFixed(1))),
-              DataCell(Text(
-                row.cumulativeGdd.toStringAsFixed(0),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              )),
+              DataCell(
+                Text(
+                  row.cumulativeGdd.toStringAsFixed(0),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
               DataCell(
                 row.isThresholdRow
                     ? Text(

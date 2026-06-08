@@ -24,6 +24,23 @@ class DegreeDayThreshold {
 
   /// The recommended action / biological event at this threshold.
   final String label;
+
+  Map<String, Object?> toJson() => {'degreeDays': degreeDays, 'label': label};
+
+  factory DegreeDayThreshold.fromJson(Map<String, dynamic> json) =>
+      DegreeDayThreshold(
+        degreeDays: (json['degreeDays'] as num).toDouble(),
+        label: json['label'] as String,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is DegreeDayThreshold &&
+      other.degreeDays == degreeDays &&
+      other.label == label;
+
+  @override
+  int get hashCode => Object.hash(degreeDays, label);
 }
 
 /// Codling moth management thresholds, in ascending order.

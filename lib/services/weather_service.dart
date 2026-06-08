@@ -73,9 +73,7 @@ class WeatherService {
     }
 
     if (response.statusCode != 200) {
-      throw WeatherFetchException(
-        'IEM returned HTTP ${response.statusCode}.',
-      );
+      throw WeatherFetchException('IEM returned HTTP ${response.statusCode}.');
     }
 
     return _parseCsv(response.body);
@@ -90,7 +88,10 @@ class WeatherService {
         .toList();
     if (lines.isEmpty) return const [];
 
-    final header = lines.first.split(',').map((h) => h.trim().toLowerCase()).toList();
+    final header = lines.first
+        .split(',')
+        .map((h) => h.trim().toLowerCase())
+        .toList();
     // The IEM response labels the temperature columns `max_temp_f`/`min_temp_f`
     // (not the `max_tmpf`/`min_tmpf` names used in the `vars` request param).
     final dayIdx = header.indexOf('day');

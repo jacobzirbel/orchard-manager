@@ -63,18 +63,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Jumps to the bottom so the newest date is visible after data loads.
   void _scrollToNewest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_vScrollController.hasClients) {
-        _vScrollController.jumpTo(
-          _vScrollController.position.maxScrollExtent,
-        );
+        _vScrollController.jumpTo(_vScrollController.position.maxScrollExtent);
       }
     });
   }
