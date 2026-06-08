@@ -110,6 +110,57 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _selectStation(String stationId) async {
+    await widget.repository.selectStation(stationId);
+    await _load(isInitial: true);
+  }
+
+  /// A header showing the active station — a dropdown when there's more than one
+  /// to switch between, or just its name when there's a single station.
+  Widget _buildStationBar(DegreeDayData data) {
+    if (data.stations.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final selected = data.stations.firstWhere(
+      (s) => s.id == data.selectedStationId,
+      orElse: () => data.stations.first,
+    );
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: Row(
+        children: [
+          Icon(
+            Icons.cell_tower,
+            size: 18,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: data.stations.length < 2
+                ? Text(selected.displayName, style: theme.textTheme.titleSmall)
+                : DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: selected.id,
+                      items: [
+                        for (final station in data.stations)
+                          DropdownMenuItem(
+                            value: station.id,
+                            child: Text(station.displayName),
+                          ),
+                      ],
+                      onChanged: (id) {
+                        if (id != null) _selectStation(id);
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBody() {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -124,6 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onRefresh: () => _load(isInitial: false),
       child: Column(
         children: [
+          _buildStationBar(data),
           SummaryHeader(summary: data.summary),
           Expanded(
             child: data.rows.isEmpty
@@ -159,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Enter your IEM weather station ID and the biofix date to start '
+              'Set a biofix date and add a weather station in settings to start '
               'tracking codling moth degree days.',
               style: theme.textTheme.bodyMedium,
               textAlign: TextAlign.center,

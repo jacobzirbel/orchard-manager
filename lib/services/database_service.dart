@@ -197,4 +197,9 @@ class DatabaseService {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
+
+  Future<void> deleteStation(String id) async {
+    final db = await _database;
+    await db.delete(_stations, where: 'id = ?', whereArgs: [id]);
+  }
 }

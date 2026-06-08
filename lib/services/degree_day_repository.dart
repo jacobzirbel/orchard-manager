@@ -57,6 +57,8 @@ class DegreeDayData {
     required this.summary,
     this.stationId,
     this.biofix,
+    this.stations = const [],
+    this.selectedStationId,
   });
 
   /// True when there is a selected orchard with a biofix and at least one
@@ -67,14 +69,24 @@ class DegreeDayData {
   final String? stationId;
   final DateTime? biofix;
 
-  factory DegreeDayData.unconfigured({String? stationId, DateTime? biofix}) =>
-      DegreeDayData(
-        isConfigured: false,
-        rows: const [],
-        summary: const DegreeDaySummary(currentCumulative: 0),
-        stationId: stationId,
-        biofix: biofix,
-      );
+  /// All stations in the selected orchard, for the Home station picker.
+  final List<Station> stations;
+  final String? selectedStationId;
+
+  factory DegreeDayData.unconfigured({
+    String? stationId,
+    DateTime? biofix,
+    List<Station> stations = const [],
+    String? selectedStationId,
+  }) => DegreeDayData(
+    isConfigured: false,
+    rows: const [],
+    summary: const DegreeDaySummary(currentCumulative: 0),
+    stationId: stationId,
+    biofix: biofix,
+    stations: stations,
+    selectedStationId: selectedStationId,
+  );
 }
 
 /// The single entry point the UI uses. Owns the preferences, database, and
@@ -97,25 +109,11 @@ class DegreeDayRepository {
 
   Future<void>? _migration;
 
-  // --- Screen-facing API (one orchard/station today; see Phase 2+ for more) --
+  // --- Screen-facing API -----------------------------------------------------
 
-  Future<String?> currentStationId() async {
+  Future<Orchard?> currentOrchard() async {
     await _ensureMigrated();
-    final orchard = await _selectedOrchard();
-    if (orchard == null) return null;
-    return (await _selectedStation(orchard))?.iemStation;
-  }
-
-  Future<String?> currentNetwork() async {
-    await _ensureMigrated();
-    final orchard = await _selectedOrchard();
-    if (orchard == null) return null;
-    return (await _selectedStation(orchard))?.iemNetwork;
-  }
-
-  Future<DateTime?> currentBiofix() async {
-    await _ensureMigrated();
-    return (await _selectedOrchard())?.biofix;
+    return _selectedOrchard();
   }
 
   Future<List<DegreeDayThreshold>> currentThresholds() async {
@@ -128,56 +126,81 @@ class DegreeDayRepository {
     return (await _selectedOrchard())?.model ?? const DegreeDayModel();
   }
 
+  /// Sets the orchard biofix, creating a default orchard on first use. Changing
+  /// it never clears the cache — weather is biofix-independent and only filtered
+  /// at read (and earlier days backfill on next load).
+  Future<void> saveBiofix(DateTime biofix) async {
+    await _ensureMigrated();
+    final orchard = await _ensureOrchard();
+    await _db.upsertOrchard(orchard.copyWith(biofix: dateOnly(biofix)));
+  }
+
   Future<void> saveThresholds(List<DegreeDayThreshold> thresholds) async {
     await _ensureMigrated();
-    final orchard = await _selectedOrchard();
-    if (orchard == null) return;
+    final orchard = await _ensureOrchard();
     await _db.upsertOrchard(orchard.copyWith(thresholds: thresholds));
   }
 
   Future<void> saveModel(DegreeDayModel model) async {
     await _ensureMigrated();
-    final orchard = await _selectedOrchard();
-    if (orchard == null) return;
+    final orchard = await _ensureOrchard();
     await _db.upsertOrchard(orchard.copyWith(model: model));
   }
 
-  /// Persists the station + biofix, creating the orchard/station on first use.
-  /// No cache clearing: weather is keyed by station and biofix only filters at
-  /// read, so changing either just recomputes (and may backfill on next load).
-  Future<void> saveSettings({
-    required String stationId,
+  // --- Stations (within the selected orchard) --------------------------------
+
+  Future<List<Station>> currentOrchardStations() async {
+    await _ensureMigrated();
+    final orchard = await _selectedOrchard();
+    return orchard == null ? const [] : _db.getStations(orchard.id);
+  }
+
+  Future<void> selectStation(String stationId) =>
+      _prefs.setSelectedStationId(stationId);
+
+  /// Adds a station to the selected orchard (creating the orchard if needed) and
+  /// auto-selects it when it is the orchard's first.
+  Future<void> addStation({
+    required String iemStation,
     required String network,
-    required DateTime biofix,
+    String alias = '',
   }) async {
     await _ensureMigrated();
-    final normStation = stationId.trim().toUpperCase();
-    final normNetwork = network.trim().toUpperCase();
-    final normBiofix = dateOnly(biofix);
+    final orchard = await _ensureOrchard();
+    final existing = await _db.getStations(orchard.id);
+    final station = Station(
+      id: _uuid.v4(),
+      orchardId: orchard.id,
+      iemStation: iemStation.trim().toUpperCase(),
+      iemNetwork: network.trim().toUpperCase(),
+      alias: alias.trim(),
+      sortOrder: existing.length,
+    );
+    await _db.upsertStation(station);
+    if (existing.isEmpty) await _prefs.setSelectedStationId(station.id);
+  }
 
-    var orchard = await _selectedOrchard();
-    if (orchard == null) {
-      orchard = Orchard(id: _uuid.v4(), name: 'My orchard', biofix: normBiofix);
-      await _db.upsertOrchard(orchard);
-      await _prefs.setSelectedOrchardId(orchard.id);
-    } else {
-      await _db.upsertOrchard(orchard.copyWith(biofix: normBiofix));
-    }
+  Future<void> updateStation(Station station) async {
+    await _db.upsertStation(
+      station.copyWith(
+        iemStation: station.iemStation.trim().toUpperCase(),
+        iemNetwork: station.iemNetwork.trim().toUpperCase(),
+        alias: station.alias.trim(),
+      ),
+    );
+  }
 
-    final station = await _selectedStation(orchard);
-    if (station == null) {
-      final created = Station(
-        id: _uuid.v4(),
-        orchardId: orchard.id,
-        iemStation: normStation,
-        iemNetwork: normNetwork,
-      );
-      await _db.upsertStation(created);
-      await _prefs.setSelectedStationId(created.id);
-    } else {
-      await _db.upsertStation(
-        station.copyWith(iemStation: normStation, iemNetwork: normNetwork),
-      );
+  /// Deletes a station; if it was the selected one, falls back to another in the
+  /// same orchard so the Home picker always has a valid selection.
+  Future<void> deleteStation(String id) async {
+    await _ensureMigrated();
+    await _db.deleteStation(id);
+    if (await _prefs.getSelectedStationId() != id) return;
+    final orchard = await _selectedOrchard();
+    if (orchard == null) return;
+    final remaining = await _db.getStations(orchard.id);
+    if (remaining.isNotEmpty) {
+      await _prefs.setSelectedStationId(remaining.first.id);
     }
   }
 
@@ -187,12 +210,16 @@ class DegreeDayRepository {
   Future<DegreeDayData> load({bool fetch = true}) async {
     await _ensureMigrated();
     final orchard = await _selectedOrchard();
-    if (orchard == null || orchard.biofix == null) {
-      return DegreeDayData.unconfigured(biofix: orchard?.biofix);
-    }
+    if (orchard == null) return DegreeDayData.unconfigured();
+
+    final stations = await _db.getStations(orchard.id);
     final station = await _selectedStation(orchard);
-    if (station == null) {
-      return DegreeDayData.unconfigured(biofix: orchard.biofix);
+    if (orchard.biofix == null || station == null) {
+      return DegreeDayData.unconfigured(
+        biofix: orchard.biofix,
+        stations: stations,
+        selectedStationId: station?.id,
+      );
     }
 
     final biofix = dateOnly(orchard.biofix!);
@@ -215,6 +242,8 @@ class DegreeDayRepository {
       ),
       stationId: station.iemStation,
       biofix: orchard.biofix,
+      stations: stations,
+      selectedStationId: station.id,
     );
   }
 
@@ -257,6 +286,17 @@ class DegreeDayRepository {
     if (all.isEmpty) return null;
     await _prefs.setSelectedOrchardId(all.first.id);
     return all.first;
+  }
+
+  /// Returns the selected orchard, creating (and selecting) a default one with
+  /// no biofix if none exists yet. Used by the save paths during onboarding.
+  Future<Orchard> _ensureOrchard() async {
+    final existing = await _selectedOrchard();
+    if (existing != null) return existing;
+    final orchard = Orchard(id: _uuid.v4(), name: 'My orchard', biofix: null);
+    await _db.upsertOrchard(orchard);
+    await _prefs.setSelectedOrchardId(orchard.id);
+    return orchard;
   }
 
   Future<Station?> _selectedStation(Orchard orchard) async {

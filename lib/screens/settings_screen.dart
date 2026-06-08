@@ -3,12 +3,13 @@ import 'package:intl/intl.dart';
 
 import '../services/degree_day_repository.dart';
 import 'degree_day_model_screen.dart';
+import 'manage_stations_screen.dart';
 
-/// Settings: the IEM station ID and the biofix date that anchors accumulation.
+/// Orchard-level settings: the biofix date plus entry points to manage the
+/// orchard's stations and its degree-day model.
 ///
-/// Pops `true` when settings were saved so the caller (HomeScreen) knows to
-/// reload. Changing either value clears the cache (handled in the repository),
-/// so the next load refetches from biofix.
+/// Each action persists immediately; the screen pops `true` (even via the back
+/// button) when anything changed so HomeScreen knows to reload and recompute.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.repository});
 
@@ -19,17 +20,10 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _stationController = TextEditingController();
-  final _networkController = TextEditingController();
   final _dateFormat = DateFormat('EEE, MMM d, yyyy');
 
   DateTime? _biofix;
   bool _loading = true;
-  bool _saving = false;
-
-  /// True once something changed (station/biofix saved, or thresholds edited)
-  /// so the caller knows to reload even when leaving via the back button.
   bool _changed = false;
 
   @override
@@ -39,23 +33,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadCurrent() async {
-    final stationId = await widget.repository.currentStationId();
-    final network = await widget.repository.currentNetwork();
-    final biofix = await widget.repository.currentBiofix();
+    final orchard = await widget.repository.currentOrchard();
     if (!mounted) return;
     setState(() {
-      _stationController.text = stationId ?? '';
-      _networkController.text = network ?? '';
-      _biofix = biofix;
+      _biofix = orchard?.biofix;
       _loading = false;
     });
-  }
-
-  @override
-  void dispose() {
-    _stationController.dispose();
-    _networkController.dispose();
-    super.dispose();
   }
 
   Future<void> _pickBiofix() async {
@@ -67,9 +50,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       lastDate: now,
       helpText: 'Select biofix date',
     );
-    if (picked != null) {
-      setState(() => _biofix = picked);
-    }
+    if (picked == null) return;
+    await widget.repository.saveBiofix(picked);
+    if (!mounted) return;
+    setState(() {
+      _biofix = picked;
+      _changed = true;
+    });
+  }
+
+  Future<void> _openStations() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ManageStationsScreen(repository: widget.repository),
+      ),
+    );
+    if (changed == true && mounted) setState(() => _changed = true);
   }
 
   Future<void> _openModel() async {
@@ -78,31 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (_) => DegreeDayModelScreen(repository: widget.repository),
       ),
     );
-    if (changed == true && mounted) {
-      setState(() => _changed = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Degree-day model updated.')),
-      );
-    }
-  }
-
-  Future<void> _save() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_biofix == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please choose a biofix date.')),
-      );
-      return;
-    }
-
-    setState(() => _saving = true);
-    await widget.repository.saveSettings(
-      stationId: _stationController.text,
-      network: _networkController.text,
-      biofix: _biofix!,
-    );
-    if (!mounted) return;
-    Navigator.of(context).pop(true);
+    if (changed == true && mounted) setState(() => _changed = true);
   }
 
   @override
@@ -117,96 +89,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
         appBar: AppBar(title: const Text('Settings')),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
-            : Form(
-                key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    TextFormField(
-                      controller: _stationController,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: const InputDecoration(
-                        labelText: 'IEM station ID',
-                        hintText: 'e.g. SAVW3',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.cell_tower),
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.event),
+                      title: const Text('Biofix date'),
+                      subtitle: Text(
+                        _biofix == null
+                            ? 'Not set'
+                            : _dateFormat.format(_biofix!),
                       ),
-                      validator: (value) =>
-                          (value == null || value.trim().isEmpty)
-                          ? 'Enter a station ID'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _networkController,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: const InputDecoration(
-                        labelText: 'IEM network',
-                        hintText: 'e.g. WI_COOP',
-                        helperText:
-                            'The network the station belongs to '
-                            '(e.g. WI_COOP, IA_ASOS).',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.hub),
+                      trailing: TextButton(
+                        onPressed: _pickBiofix,
+                        child: const Text('Change'),
                       ),
-                      validator: (value) =>
-                          (value == null || value.trim().isEmpty)
-                          ? 'Enter a network'
-                          : null,
+                      onTap: _pickBiofix,
                     ),
-                    const SizedBox(height: 24),
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.event),
-                        title: const Text('Biofix date'),
-                        subtitle: Text(
-                          _biofix == null
-                              ? 'Not set'
-                              : _dateFormat.format(_biofix!),
-                        ),
-                        trailing: TextButton(
-                          onPressed: _pickBiofix,
-                          child: const Text('Change'),
-                        ),
-                        onTap: _pickBiofix,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+                    child: Text(
+                      'The biofix anchors accumulation and is shared by every '
+                      'station in this orchard.',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.cell_tower),
+                      title: const Text('Stations'),
+                      subtitle: const Text(
+                        'Add and alias the weather stations to track.',
                       ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _openStations,
                     ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        'Weather is cached per station and reused. Changing the '
-                        'biofix just recomputes; earlier days are fetched '
-                        'automatically if needed.',
-                        style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.tune),
+                      title: const Text('Degree-day model'),
+                      subtitle: const Text(
+                        'Base temp, cutoffs, and spray thresholds.',
                       ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _openModel,
                     ),
-                    const SizedBox(height: 24),
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.tune),
-                        title: const Text('Degree-day model'),
-                        subtitle: const Text(
-                          'Base temp, cutoffs, and spray thresholds.',
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: _openModel,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    FilledButton.icon(
-                      onPressed: _saving ? null : _save,
-                      icon: _saving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.save),
-                      label: const Text('Save'),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
       ),
     );
