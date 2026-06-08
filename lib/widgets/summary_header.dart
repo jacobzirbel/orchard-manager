@@ -46,6 +46,28 @@ class SummaryHeader extends StatelessWidget {
                 ),
               ],
             ),
+            if (summary.missingDays > 0) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 18,
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    summary.missingDays == 1
+                        ? '1 day with no station data — not counted toward the total'
+                        : '${summary.missingDays} days with no station data — '
+                              'not counted toward the total',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             if (next == null)
               Text(
