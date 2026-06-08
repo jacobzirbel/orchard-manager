@@ -24,9 +24,18 @@ class DegreeDayCalculator {
 
     var cumulative = 0.0;
     var nextThresholdIndex = 0;
+    DateTime? previousDate;
     final rows = <DegreeDayRow>[];
 
     for (final record in sorted) {
+      // The weather source silently omits days it has no reading for (see
+      // WeatherService._parseCsv), so a >1-day jump means the source has a
+      // hole here — those days never contributed to `cumulative`.
+      final missingDaysBefore = previousDate == null
+          ? 0
+          : record.date.difference(previousDate).inDays - 1;
+      previousDate = record.date;
+
       final daily = model.dailyGdd(record.tMax, record.tMin);
       cumulative += daily;
 
@@ -45,6 +54,7 @@ class DegreeDayCalculator {
           dailyGdd: daily,
           cumulativeGdd: cumulative,
           crossedThreshold: crossed,
+          missingDaysBefore: missingDaysBefore,
         ),
       );
     }
@@ -67,7 +77,15 @@ class DegreeDayCalculator {
         break;
       }
     }
-    return DegreeDaySummary(currentCumulative: current, nextThreshold: next);
+    final missingDays = rows.fold<int>(
+      0,
+      (sum, row) => sum + row.missingDaysBefore,
+    );
+    return DegreeDaySummary(
+      currentCumulative: current,
+      nextThreshold: next,
+      missingDays: missingDays,
+    );
   }
 
   static List<DegreeDayThreshold> _ascending(

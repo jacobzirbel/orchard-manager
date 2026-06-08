@@ -52,6 +52,30 @@ void main() {
       expect(rows.map((r) => r.cumulativeGdd), [20, 30, 60]);
     });
 
+    test('flags missing days between consecutive records', () {
+      final rows = DegreeDayCalculator.buildRows([
+        _record('2024-05-01', 80, 60),
+        _record('2024-05-02', 80, 60),
+        _record('2024-05-05', 80, 60), // gap: 05-03 and 05-04 missing
+        _record('2024-05-06', 80, 60),
+      ], model: _noCutoff);
+
+      expect(rows.map((r) => r.missingDaysBefore), [0, 0, 2, 0]);
+      expect(rows.map((r) => r.hasGapBefore), [false, false, true, false]);
+    });
+
+    test('does not double-count cumulative for missing days', () {
+      // Each present day contributes 20 GDD; the gap days contribute nothing,
+      // so cumulative simply carries over rather than estimating the gap.
+      final rows = DegreeDayCalculator.buildRows([
+        _record('2024-05-01', 80, 60), // daily 20
+        _record('2024-05-04', 80, 60), // daily 20, 2 days missing in between
+      ], model: _noCutoff);
+
+      expect(rows.map((r) => r.cumulativeGdd), [20, 40]);
+      expect(rows[1].missingDaysBefore, 2);
+    });
+
     test('tags the first row to reach a threshold', () {
       const thresholds = [
         DegreeDayThreshold(degreeDays: 250, label: 'first cover spray'),
@@ -92,6 +116,19 @@ void main() {
       expect(summary.currentCumulative, 130);
       expect(summary.nextThreshold?.degreeDays, 250);
       expect(summary.degreeDaysRemaining, 120);
+    });
+
+    test('totals missing days across the whole range', () {
+      final rows = DegreeDayCalculator.buildRows([
+        _record('2024-05-01', 80, 60),
+        _record('2024-05-03', 80, 60), // 1 missing
+        _record('2024-05-07', 80, 60), // 3 missing
+      ], thresholds: thresholds, model: _noCutoff);
+
+      expect(
+        DegreeDayCalculator.summarize(rows, thresholds: thresholds).missingDays,
+        4,
+      );
     });
 
     test('empty data yields zero with the first threshold next', () {

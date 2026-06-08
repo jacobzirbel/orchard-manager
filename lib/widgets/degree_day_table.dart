@@ -20,6 +20,8 @@ class DegreeDayTable extends StatelessWidget {
     final theme = Theme.of(context);
     final highlight = theme.colorScheme.tertiaryContainer;
     final onHighlight = theme.colorScheme.onTertiaryContainer;
+    final warning = theme.colorScheme.errorContainer;
+    final onWarning = theme.colorScheme.onErrorContainer;
 
     return DataTable(
       headingRowColor: WidgetStatePropertyAll(
@@ -36,7 +38,29 @@ class DegreeDayTable extends StatelessWidget {
         DataColumn(label: Text('Indicator')),
       ],
       rows: [
-        for (final row in rows)
+        for (final row in rows) ...[
+          if (row.hasGapBefore)
+            DataRow(
+              color: WidgetStatePropertyAll(warning),
+              cells: [
+                DataCell(
+                  Text(
+                    row.missingDaysBefore == 1
+                        ? '1 day missing — not counted'
+                        : '${row.missingDaysBefore} days missing — not counted',
+                    style: TextStyle(
+                      color: onWarning,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+                const DataCell(Text('')),
+                const DataCell(Text('')),
+                const DataCell(Text('')),
+                const DataCell(Text('')),
+                const DataCell(Text('')),
+              ],
+            ),
           DataRow(
             color: row.isThresholdRow
                 ? WidgetStatePropertyAll(highlight)
@@ -65,6 +89,7 @@ class DegreeDayTable extends StatelessWidget {
               ),
             ],
           ),
+        ],
       ],
     );
   }
